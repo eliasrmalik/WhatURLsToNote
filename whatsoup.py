@@ -12,7 +12,7 @@ from selenium.webdriver.support import expected_conditions
 from selenium.webdriver.common.by import By
 from selenium.common.exceptions import TimeoutException, NoSuchElementException, StaleElementReferenceException, ElementNotInteractableException
 from prettytable import PrettyTable
-from dotenv import load_dotenv
+from dotenv import load_dotenv, find_dotenv
 from timeit import default_timer as timer
 
 
@@ -82,10 +82,11 @@ def setup_selenium():
     load_dotenv()
     DRIVER_PATH = os.getenv('DRIVER_PATH')
     CHROME_PROFILE = os.getenv('CHROME_PROFILE')
-
+    
     # Configure selenium
     options = webdriver.ChromeOptions()
     options.add_argument(f"user-data-dir={CHROME_PROFILE}")
+    options.add_argument('--no-sandbox')
     driver = webdriver.Chrome(
         executable_path=DRIVER_PATH, options=options)
     # Change default script timeout from 30sec to 90sec for execute_script tasks which slow down significantly in very large chats
@@ -368,7 +369,7 @@ def load_selected_chat(driver):
 
     # Set focus to chat window (xpath == div element w/ aria-label set to 'Message list. Press right arrow key...')
     message_list_element = driver.find_element_by_xpath(
-        "//*[@id='main']/div[3]/div/div/div[contains(@aria-label,'Message list')]")
+        "//*[@id='main']/div[3]/div/div[2]/div[3]")
     message_list_element.send_keys(Keys.NULL)
 
     # Get scroll height of the chat pane div so we can calculate if new messages were loaded
@@ -523,11 +524,13 @@ def scrape_chat(driver):
 
     # Get the 'Message list' element that is a container for all messages in the right chat pane
     message_list = driver.find_element_by_xpath(
-        '//*[@id="main"]/div[3]/div/div/div[2]').get_attribute('class')
-
+        '/html/body/div[1]/div/div/div[4]/div/div[3]/div/div[2]/div[3]').get_attribute('class')  
     # Search for and only keep HTML elements which contain actual messages
     chat_messages = [
         msg for msg in soup.find("div", message_list).contents if 'message' in " ".join(msg.get('class'))]
+
+  
+
     chat_messages_count = len(chat_messages)
 
     # Get users profile name
@@ -553,7 +556,9 @@ def scrape_chat(driver):
             "has_emoji_text": False,
             "has_media": False,
             "has_recall": False,
-            "data-id": message.get('data-id')
+            "data-id": message.get('data-id'),
+            "attachment": None,
+            "attachment_type": None
         }
 
         # Approach for scraping: search for everything we need in 'copyable-text' to start with, then 'selectable-text', and so on as we look for certain HTML patterns. As patterns are identified, update the message_scraped dict.
@@ -811,17 +816,19 @@ def parse_datetime(text, time_only=False):
     # TODO lazy approach to handling variances of North America date/time values MM/DD/YYYY AM/PM or YYYY-MM-DD A.M./P.M.
 
     # Normalize the text
-    text = text.upper().replace("A.M.", "AM").replace("P.M.", "PM")
+    text = text.upper().replace("A.M.", "AM").replace("P.M.", "PM").strip()
 
-    # Try parsing when text is some datetime value e.g. 2/15/2021 2:35 P.M.
+
+    
+    # Try parsing when text is some datetime value e.g. 18/12/2021 0:08 AM
     if not time_only:
-        for fmt in ('%m/%d/%Y %I:%M %p', '%Y-%m-%d %I:%M %p'):
+        for fmt in ("%d/%m/%Y %H:%M %p", '%Y-%m-%d %H:%M %p', "%A %H:%M %p"):
             try:
                 return datetime.strptime(text, fmt)
             except ValueError:
                 continue
         raise ValueError(
-            f"{text} does not match a valid datetime format of '%m/%d/%Y %I:%M %p' or '%Y-%m-%d %I:%M %p'. Make sure your WhatsApp language settings on your phone are set to English.")
+            f"{text} does not match a valid datetime format of '%d/%m/%Y %H:%M %p' or '%Y-%m-%d %H:%M %p'.")
 
     # Try parsing when text is some time value e.g. 2:35 PM
     else:
@@ -1098,6 +1105,9 @@ def user_is_finished():
         # Re-prompt the question
         else:
             continue
+
+
+    
 
 
 if __name__ == "__main__":

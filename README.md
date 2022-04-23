@@ -2,7 +2,7 @@
 
 A (deprecated) web scraper that exports your entire WhatsApp chat history.
 
-⛔ DEPRECATED as of April 2021: I cannot maintain this repo any longer but feel free to fork and maintain it going forward.
+⛔ Original projected DEPRECATED as of April 2021: Currently being fixed. Basic scrapping works, but entire chats are not fully captured yet. 
 
 ## Table of Contents
 
